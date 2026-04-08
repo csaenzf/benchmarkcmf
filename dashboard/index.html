@@ -294,13 +294,17 @@ function getDerived(m,b,pt){
 /* ═══ TABS ═══ */
 
 /* ═══ RISK / CARTERA BUILDERS ═══ */
+/* Mapa abreviatura → nombre largo BN */
+var ABBR={"BdCh":"Banco de Chile","Sant.":"Santander","BCI":"BCI","BEst.":"BancoEstado","Itaú":"Itaú","Scotia":"Scotiabank","Sistema":"Sistema"};
+function abbrIdx(b){var full=ABBR[b]||b;return BN.indexOf(full);}
+
 function buildMORA(metric,visibleBanks){
   var src=_D.MORA;var dates=[];var seen={};
   src.forEach(function(d){if(!seen[d.p]){seen[d.p]=true;dates.push(d.p)}});
   dates.sort();
   var key=metric||'tot';
   var ld={};BN.forEach(function(b,i){ld[i]={}});
-  src.forEach(function(d){var bi=BN.indexOf(d.b);if(bi>=0&&d[key]!=null)ld[bi][d.p]=d[key]});
+  src.forEach(function(d){var bi=abbrIdx(d.b);if(bi>=0&&d[key]!=null)ld[bi][d.p]=d[key]});
   return{dates:dates,lines:BN.map(function(b,i){return{name:b,color:BC[b],data:ld[i],visible:visibleBanks?visibleBanks.indexOf(b)>=0:true}}),suffix:'%'};
 }
 
@@ -312,7 +316,7 @@ function buildCV(metric,visibleBanks){
   var ld={};BN.forEach(function(b,i){ld[i]={}});var sisData={};
   src.forEach(function(d){
     if(d.b==='Sistema'){sisData[d.p]=d[key];return}
-    var bi=BN.indexOf(d.b);if(bi>=0&&d[key]!=null)ld[bi][d.p]=d[key];
+    var bi=abbrIdx(d.b);if(bi>=0&&d[key]!=null)ld[bi][d.p]=d[key];
   });
   var lines=BN.map(function(b,i){return{name:b,color:BC[b],data:ld[i],visible:visibleBanks?visibleBanks.indexOf(b)>=0:true}});
   lines.push({name:'Sistema',color:'#64748B',data:sisData,visible:true,dashed:true});
@@ -325,7 +329,7 @@ function buildCOL(metric,visibleBanks){
   dates.sort();
   var key=metric||'tc';
   var ld={};BN.forEach(function(b,i){ld[i]={}});
-  src.forEach(function(d){var bi=BN.indexOf(d.b);if(bi>=0&&d[key]!=null)ld[bi][d.p]=d[key]});
+  src.forEach(function(d){var bi=abbrIdx(d.b);if(bi>=0&&d[key]!=null)ld[bi][d.p]=d[key]});
   return{dates:dates,lines:BN.map(function(b,i){return{name:b,color:BC[b],data:ld[i],visible:visibleBanks?visibleBanks.indexOf(b)>=0:true}}),suffix:'$'};
 }
 
@@ -364,6 +368,140 @@ function LegendEx(props){
         l.name)}));
 }
 
+
+function TabRiesgo(props){
+  var rMet=props.rMet;var setRMet=props.setRMet;
+  var cvMet=props.cvMet;var setCvMet=props.setCvMet;
+  var rVis=props.rVis;var setRVis=props.setRVis;
+  var metL={tot:'Total',com:'Comercial',con:'Consumo',viv:'Vivienda'};
+  function toggleRV(b){var i=rVis.indexOf(b);if(i>=0){if(rVis.length>1)setRVis(rVis.filter(function(x){return x!==b}))}else{setRVis(rVis.concat([b]))}}
+  var moraSnap=_D.MORA.filter(function(d){return d.p==='2025-12'});
+  var mpMora=buildMORA(rMet,rVis);
+  var mpCV=buildCV(cvMet,rVis);
+
+  var moraTable=ce('div',{style:{background:P.card,border:'1px solid '+P.border,borderRadius:10,overflowX:'auto'}},
+    ce('table',{style:{width:'100%',borderCollapse:'collapse',minWidth:580}},
+      ce('thead',null,ce('tr',null,
+        ce('th',{style:Object.assign({},thS,{textAlign:'left',width:110})},'Segmento'),
+        BN.map(function(b){return ce('th',{key:b,style:Object.assign({},thS,{color:b==='Banco de Chile'?HL:P.t2,fontWeight:b==='Banco de Chile'?800:600})},SHORT[b])}))),
+      ce('tbody',null,['tot','com','con','viv'].map(function(seg){
+        var label={tot:'Total',com:'Comercial',con:'Consumo',viv:'Vivienda'}[seg];
+        var vals=BN.map(function(b){var r=moraSnap.find(function(d){return (ABBR[d.b]||d.b)===b});return r&&r[seg]!=null?r[seg]:null});
+        var valid=vals.filter(function(v){return v!=null});
+        var minV=valid.length?Math.min.apply(null,valid):null;
+        var maxV=valid.length?Math.max.apply(null,valid):null;
+        return ce('tr',{key:seg},
+          ce('td',{style:Object.assign({},tdS,{textAlign:'left',fontFamily:"'DM Sans'",fontWeight:600,color:'#CBD5E1',fontSize:11})},label),
+          BN.map(function(b,i){
+            var v=vals[i];var isHL=b==='Banco de Chile';
+            var col=v==null?P.t2:v===minV?P.green:v===maxV?P.red:isHL?HL:P.t2;
+            return ce('td',{key:b,style:Object.assign({},tdS,{color:col,fontWeight:isHL||v===minV||v===maxV?700:400})},
+              v!=null?v.toFixed(2)+'%':'-',
+              v===minV&&ce(Badge,{color:P.green},' ★'),
+              v===maxV&&ce(Badge,{color:P.red},' ▼'))
+          }))
+      }))));
+
+  var moraChart=ce('div',{style:{background:P.card,border:'1px solid '+P.border,borderRadius:10,padding:'16px 12px'}},
+    ce('div',{style:{height:300}},ce(CJLine,{dates:mpMora.dates,lines:mpMora.lines,suffix:'%'})));
+
+  var cvChart=ce('div',{style:{background:P.card,border:'1px solid '+P.border,borderRadius:10,padding:'16px 12px'}},
+    ce('div',{style:{height:300}},ce(CJLine,{dates:mpCV.dates,lines:mpCV.lines,suffix:'%'})));
+
+  var metPills=ce('div',{style:{display:'flex',gap:6,marginBottom:12,flexWrap:'wrap'}},
+    ['tot','com','con','viv'].map(function(m){return ce(Pill,{key:m,active:rMet===m,onClick:function(){setRMet(m)}},metL[m])}));
+
+  var cvPills=ce('div',{style:{display:'flex',gap:6,marginBottom:12,flexWrap:'wrap'}},
+    ['tot','com','con','viv'].map(function(m){return ce(Pill,{key:m,active:cvMet===m,onClick:function(){setCvMet(m)}},metL[m])}));
+
+  var diagSection=ce('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}},
+    ce('div',{style:{background:P.card2,border:'1px solid '+P.border,borderRadius:10,padding:'14px 16px',borderLeft:'3px solid '+P.green}},
+      ce('div',{style:{fontSize:12,fontWeight:700,color:P.t1,marginBottom:4}},'BdCh: mora más baja del sistema'),
+      ce('div',{style:{fontSize:11,color:P.t2,lineHeight:1.5}},'1.66% mora 90d vs promedio ~2.5%. Fortaleza de calidad de cartera. Consumo 2.0% es el único segmento elevado relativo.')),
+    ce('div',{style:{background:P.card2,border:'1px solid '+P.border,borderRadius:10,padding:'14px 16px',borderLeft:'3px solid '+P.red}},
+      ce('div',{style:{fontSize:12,fontWeight:700,color:P.t1,marginBottom:4}},'BancoEstado: riesgo sistémico 4.1%'),
+      ce('div',{style:{fontSize:11,color:P.t2,lineHeight:1.5}},'Casi 2.5x la mora de BdCh. Vivienda social 4.75% explica el gap. No compite en crédito retail.')));
+
+  return ce('div',null,
+    ce('div',{style:{display:'flex',gap:6,marginTop:16,flexWrap:'wrap',alignItems:'center'}},
+      ce('span',{style:{fontSize:10,color:P.t2}},'Fuente: BEST-CMF · Datos bancarios totales (no exclusivo TC)')),
+    ce(Sec,{title:'Morosidad 90 días o más — dic 2025',sub:'% sobre cartera total del banco por segmento'},moraTable),
+    ce(Sec,{title:'Evolución Morosidad 90d',sub:'Todos los bancos · ene 2025 – feb 2026'},
+      metPills,moraChart,ce(Legend,{visible:rVis,onToggle:toggleRV})),
+    ce(Sec,{title:'Cartera Vencida',sub:'% sobre colocaciones · jul 2025 – feb 2026 · Scotia: metodología cambiada oct 2025'},
+      cvPills,cvChart,ce(Legend,{visible:rVis,onToggle:toggleRV})),
+    ce(Sec,{title:'Diagnóstico'},diagSection));
+}
+
+function TabCartera(props){
+      var colMet=props.colMet; var setColMet=props.setColMet;
+      var cVis=props.cVis; var setCVis=props.setCVis;
+      function toggleCV(b){var i=cVis.indexOf(b);if(i>=0){if(cVis.length>1)setCVis(cVis.filter(function(x){return x!==b}))}else{setCVis(cVis.concat([b]))}}
+      var colSnap=_D.COL.filter(function(d){return d.p==='2025-12'});
+      var tcTotal=colSnap.reduce(function(s,d){return s+(d.tc||0)},0);
+      var maxTC=colSnap.reduce(function(m,d){return Math.max(m,d.tc||0)},0);
+      var colSorted=colSnap.slice().sort(function(a,b){return b.tc-a.tc});
+      var mpCol=buildCOL(colMet,cVis);
+      var metL2={tc:'Deudores TC',con:'Consumo Total',com:'Comercial',viv:'Vivienda',tot:'Total Colocac.'};
+
+      return ce('div',null,
+        ce('div',{style:{display:'flex',gap:6,marginTop:16,flexWrap:'wrap',alignItems:'center'}},
+          ce('span',{style:{fontSize:10,color:P.t2}},'Fuente: API CMF · Balances mensuales 2022–feb 2026')),
+        ce(Sec,{title:'Cartera de Crédito — dic 2025',sub:'Saldo MM$ · Deudores TC = cartera revolving tarjetas de crédito'},
+          ce('div',{style:{background:P.card,border:'1px solid '+P.border,borderRadius:10,overflowX:'auto'}},
+            ce('table',{style:{width:'100%',borderCollapse:'collapse',minWidth:700}},
+              ce('thead',null,ce('tr',null,
+                ce('th',{style:Object.assign({},thS,{textAlign:'left',width:80})},'Banco'),
+                ['Deudores TC','TC/Consumo','TC/Total','Provisiones/Total','Consumo Total','Comercial','Vivienda'].map(function(h,i){return ce('th',{key:i,style:thS},h)}))),
+              ce('tbody',null,colSorted.map(function(d){
+                var b=d.b;if(BN.indexOf(b)<0)return null;
+                var isHL=b==='Banco de Chile';
+                var tcCon=d.tc&&d.con?(d.tc/d.con*100):null;
+                var tcTot=d.tc&&d.tot?(d.tc/d.tot*100):null;
+                var provTot=d.prov&&d.tot?(Math.abs(d.prov)/d.tot*100):null;
+                return ce('tr',{key:b},
+                  ce('td',{style:Object.assign({},tdS,{textAlign:'left',fontFamily:"'DM Sans'",fontWeight:isHL?800:500,color:isHL?HL:P.t2})},SHORT[ABBR[b]||b]),
+                  ce('td',{style:Object.assign({},tdS,{color:isHL?P.t1:P.t2,fontWeight:isHL?700:400})},d.tc?'$'+Math.round(d.tc/1e3).toLocaleString('es-CL')+'K':'-'),
+                  ce('td',{style:Object.assign({},tdS,{color:tcCon&&tcCon>55?P.amber:P.t2,fontWeight:tcCon&&tcCon>55?700:400})},tcCon?tcCon.toFixed(1)+'%':'-'),
+                  ce('td',{style:Object.assign({},tdS,{color:P.t2})},tcTot?tcTot.toFixed(1)+'%':'-'),
+                  ce('td',{style:Object.assign({},tdS,{color:provTot&&provTot>2.8?P.amber:P.t2})},provTot?provTot.toFixed(2)+'%':'-'),
+                  ce('td',{style:Object.assign({},tdS,{color:P.t2})},d.con?'$'+Math.round(d.con/1e3).toLocaleString('es-CL')+'K':'-'),
+                  ce('td',{style:Object.assign({},tdS,{color:P.t2})},d.com?'$'+Math.round(d.com/1e3).toLocaleString('es-CL')+'K':'-'),
+                  ce('td',{style:Object.assign({},tdS,{color:P.t2})},d.viv?'$'+Math.round(d.viv/1e3).toLocaleString('es-CL')+'K':'-'))
+              }))
+            ))
+          ),
+        ce(Sec,{title:'Market Share — Cartera TC',sub:'% saldo deudores TC sobre sistema · dic 2025'},
+          ce('div',{style:{background:P.card,border:'1px solid '+P.border,borderRadius:10,padding:'16px 18px'}},
+            ce('div',{style:{display:'flex',flexDirection:'column',gap:5}},
+              colSorted.filter(function(d){return BN.indexOf(ABBR[d.b]||d.b)>=0&&d.tc}).map(function(d){
+                var isHL=(ABBR[d.b]||d.b)==='Banco de Chile';
+                var share=tcTotal>0?(d.tc/tcTotal*100):0;
+                var barPct=maxTC>0?(d.tc/maxTC*100):0;
+                return ce('div',{key:d.b,style:{display:'flex',alignItems:'center',gap:6}},
+                  ce('div',{style:{width:52,fontSize:10,color:isHL?HL:P.t2,fontWeight:isHL?800:500,textAlign:'right',flexShrink:0}},SHORT[ABBR[d.b]||d.b]),
+                  ce('div',{style:{flex:1,height:26,background:'rgba(255,255,255,0.03)',borderRadius:4,overflow:'hidden',position:'relative'}},
+                    ce('div',{style:{width:barPct+'%',height:'100%',background:isHL?'linear-gradient(90deg,'+P.bchi+','+P.bchiL+')':BC[ABBR[d.b]||d.b]+'44',borderRadius:4,minWidth:2}}),
+                    ce('div',{style:{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:'rgba(255,255,255,0.7)',fontFamily:"'JetBrains Mono',monospace"}},share.toFixed(1)+'%')),
+                  ce('div',{style:{width:110,fontSize:11,fontWeight:isHL?800:500,color:isHL?P.t1:P.t2,textAlign:'right',fontFamily:"'JetBrains Mono',monospace",flexShrink:0}},'$'+Math.round(d.tc/1e3).toLocaleString('es-CL')+'K MM'))
+              })))),
+        ce(Sec,{title:'Evolución Colocaciones',sub:'Serie mensual 2022–2026 · MM$'},
+          ce('div',{style:{display:'flex',gap:6,marginBottom:12,flexWrap:'wrap'}},
+            Object.keys(metL2).map(function(k){return ce(Pill,{key:k,active:colMet===k,onClick:function(){setColMet(k)}},metL2[k])})),
+          ce('div',{style:{background:P.card,border:'1px solid '+P.border,borderRadius:10,padding:'16px 12px'}},
+            ce('div',{style:{height:300}},ce(CJLine,{dates:mpCol.dates,lines:mpCol.lines,suffix:'$'}))),
+          ce(Legend,{visible:cVis,onToggle:toggleCV})),
+        ce(Sec,{title:'Diagnóstico'},
+          ce('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}},
+            ce('div',{style:{background:P.card2,border:'1px solid '+P.border,borderRadius:10,padding:'14px 16px',borderLeft:'3px solid '+HL}},
+              ce('div',{style:{fontSize:12,fontWeight:700,color:P.t1,marginBottom:4}},'BdCh: 2\u00B0 mayor cartera TC del sistema'),
+              ce('div',{style:{fontSize:11,color:P.t2,lineHeight:1.5}},'$2.1B deudores TC (21.2% share). Scotia lidera $2.85B con 60% TC/consumo (alta concentraci\u00F3n revolving). BdCh 36% es balance saludable.')),
+            ce('div',{style:{background:P.card2,border:'1px solid '+P.border,borderRadius:10,padding:'14px 16px',borderLeft:'3px solid '+P.amber}},
+              ce('div',{style:{fontSize:12,fontWeight:700,color:P.t1,marginBottom:4}},'BCI: m\u00EDnima exposici\u00F3n TC (41%)'),
+              ce('div',{style:{fontSize:11,color:P.t2,lineHeight:1.5}},'Modelo orientado a banca comercial ($36.6B). Menor riesgo consumo. Sant. 34% y BdCh 36% son benchmarks de equilibrio.'))))
+      )
+
+}
 var TABS=[{id:"overview",l:"Resumen"},{id:"market",l:"Market Share"},{id:"strategic",l:"Estratégico"},{id:"crosssell",l:"Cross-Sell"},{id:"avances",l:"Avances"},{id:"adicional",l:"Adicionales"},{id:"riesgo",l:"Riesgo"},{id:"cartera",l:"Cartera"}];
 
 /* ═══ MAIN ═══ */
@@ -383,6 +521,11 @@ function Dashboard(){
   var _csTrendM=_s("r"),csTrendM=_csTrendM[0],setCsTrendM=_csTrendM[1];
   var _avTrendM=_s("ap"),avTrendM=_avTrendM[0],setAvTrendM=_avTrendM[1];
   var _adicMode=_s("table"),adicMode=_adicMode[0],setAdicMode=_adicMode[1];
+  var _rMet=_s('tot'),rMet=_rMet[0],setRMet=_rMet[1];
+  var _cvMet=_s('tot'),cvMet=_cvMet[0],setCvMet=_cvMet[1];
+  var _rVis=_s(BN.slice()),rVis=_rVis[0],setRVis=_rVis[1];
+  var _colMet=_s('tc'),colMet=_colMet[0],setColMet=_colMet[1];
+  var _cVis=_s(BN.slice()),cVis=_cVis[0],setCVis=_cVis[1];
 
   var taLabel={X:"Total",T:"Titular",A:"Adicional"};
   var prodLabel={C:"Crédito",D:"Débito"};
@@ -639,132 +782,10 @@ function Dashboard(){
             ce('div',{style:{fontSize:11,color:P.t2,lineHeight:1.5}},"Scotiabank outlier 15.3%. BdCh 1.1%, esperable."))))),
 
         /* ═══ RIESGO ═══ */
-    tab==='riesgo'&&(function(){
-      var _rMet=useState('tot'),rMet=_rMet[0],setRMet=_rMet[1];
-      var _cvMet=useState('tot'),cvMet=_cvMet[0],setCvMet=_cvMet[1];
-      var _rVis=useState(BN.slice()),rVis=_rVis[0],setRVis=_rVis[1];
-      var metL={tot:'Total',com:'Comercial',con:'Consumo',viv:'Vivienda'};
-      function toggleRV(b){var i=rVis.indexOf(b);if(i>=0){if(rVis.length>1)setRVis(rVis.filter(function(x){return x!==b}))}else{setRVis(rVis.concat([b]))}}
-      var moraSnap=_D.MORA.filter(function(d){return d.p==='2025-12'});
-      var mpMora=buildMORA(rMet,rVis);
-      var mpCV=buildCV(cvMet,rVis);
-      return ce('div',null,
-        ce('div',{style:{display:'flex',gap:6,marginTop:16,flexWrap:'wrap',alignItems:'center'}},
-          ce('span',{style:{fontSize:10,color:P.t2}},'Fuente: BEST-CMF · Datos bancarios totales (no exclusivo TC)')),
-        ce(Sec,{title:'Morosidad 90 días o más — dic 2025',sub:'% sobre cartera total del banco por segmento'},
-          ce('div',{style:{background:P.card,border:'1px solid '+P.border,borderRadius:10,overflowX:'auto'}},
-            ce('table',{style:{width:'100%',borderCollapse:'collapse',minWidth:580}},
-              ce('thead',null,ce('tr',null,
-                ce('th',{style:Object.assign({},thS,{textAlign:'left',width:110})},'Segmento'),
-                BN.map(function(b){return ce('th',{key:b,style:Object.assign({},thS,{color:b==='Banco de Chile'?HL:P.t2,fontWeight:b==='Banco de Chile'?800:600})},SHORT[b])}))),
-              ce('tbody',null,['tot','com','con','viv'].map(function(seg){
-                var label={tot:'Total',com:'Comercial',con:'Consumo',viv:'Vivienda'}[seg];
-                var vals=BN.map(function(b){var r=moraSnap.find(function(d){return d.b===b});return r&&r[seg]!=null?r[seg]:null});
-                var valid=vals.filter(function(v){return v!=null});
-                var minV=valid.length?Math.min.apply(null,valid):null;
-                var maxV=valid.length?Math.max.apply(null,valid):null;
-                return ce('tr',{key:seg},
-                  ce('td',{style:Object.assign({},tdS,{textAlign:'left',fontFamily:"'DM Sans'",fontWeight:600,color:'#CBD5E1',fontSize:11})},label),
-                  BN.map(function(b,i){
-                    var v=vals[i];var isHL=b==='Banco de Chile';
-                    var col=v==null?P.t2:v===minV?P.green:v===maxV?P.red:isHL?HL:P.t2;
-                    return ce('td',{key:b,style:Object.assign({},tdS,{color:col,fontWeight:isHL||v===minV||v===maxV?700:400})},
-                      v!=null?v.toFixed(2)+'%':'-',
-                      v===minV&&ce(Badge,{color:P.green},' \u2605'),
-                      v===maxV&&ce(Badge,{color:P.red},' \u25BC'))
-                  }))})))))
-        ),
-        ce(Sec,{title:'Evolución Morosidad 90d',sub:'Todos los bancos · ene 2025 – feb 2026'},
-          ce('div',{style:{display:'flex',gap:6,marginBottom:12,flexWrap:'wrap'}},
-            ['tot','com','con','viv'].map(function(m){return ce(Pill,{key:m,active:rMet===m,onClick:function(){setRMet(m)}},metL[m])})),
-          ce('div',{style:{background:P.card,border:'1px solid '+P.border,borderRadius:10,padding:'16px 12px'}},
-            ce('div',{style:{height:300}},ce(CJLineEx,{dates:mpMora.dates,lines:mpMora.lines,suffix:'%'}))),
-          ce(LegendEx,{lines:mpMora.lines,visible:rVis,onToggle:toggleRV})),
-        ce(Sec,{title:'Cartera Vencida',sub:'% sobre colocaciones · jul 2025 – feb 2026 · Scotia: metodología cambiada oct 2025'},
-          ce('div',{style:{display:'flex',gap:6,marginBottom:12,flexWrap:'wrap'}},
-            ['tot','com','con','viv'].map(function(m){return ce(Pill,{key:m,active:cvMet===m,onClick:function(){setCvMet(m)}},metL[m])})),
-          ce('div',{style:{background:P.card,border:'1px solid '+P.border,borderRadius:10,padding:'16px 12px'}},
-            ce('div',{style:{height:300}},ce(CJLineEx,{dates:mpCV.dates,lines:mpCV.lines,suffix:'%'}))),
-          ce(LegendEx,{lines:mpCV.lines,visible:rVis,onToggle:toggleRV})),
-        ce(Sec,{title:'Diagnóstico'},
-          ce('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}},
-            ce('div',{style:{background:P.card2,border:'1px solid '+P.border,borderRadius:10,padding:'14px 16px',borderLeft:'3px solid '+P.green}},
-              ce('div',{style:{fontSize:12,fontWeight:700,color:P.t1,marginBottom:4}},'BdCh: mora más baja del sistema'),
-              ce('div',{style:{fontSize:11,color:P.t2,lineHeight:1.5}},'1.66% mora 90d vs promedio ~2.5%. Fortaleza de calidad de cartera. Consumo 2.0% es el único segmento elevado relativo.')),
-            ce('div',{style:{background:P.card2,border:'1px solid '+P.border,borderRadius:10,padding:'14px 16px',borderLeft:'3px solid '+P.red}},
-              ce('div',{style:{fontSize:12,fontWeight:700,color:P.t1,marginBottom:4}},'BancoEstado: riesgo sistémico 4.1%'),
-              ce('div',{style:{fontSize:11,color:P.t2,lineHeight:1.5}},'Casi 2.5x la mora de BdCh. Vivienda social 4.75% explica el gap. No compite en crédito retail.')))
-      )
-    })(),
+    tab==='riesgo'&&ce(TabRiesgo,{rMet:rMet,setRMet:setRMet,cvMet:cvMet,setCvMet:setCvMet,rVis:rVis,setRVis:setRVis}),
 
     /* ═══ CARTERA ═══ */
-    tab==='cartera'&&(function(){
-      var _colMet=useState('tc'),colMet=_colMet[0],setColMet=_colMet[1];
-      var _cVis=useState(BN.slice()),cVis=_cVis[0],setCVis=_cVis[1];
-      function toggleCV(b){var i=cVis.indexOf(b);if(i>=0){if(cVis.length>1)setCVis(cVis.filter(function(x){return x!==b}))}else{setCVis(cVis.concat([b]))}}
-      var colSnap=_D.COL.filter(function(d){return d.p==='2025-12'});
-      var tcTotal=colSnap.reduce(function(s,d){return s+(d.tc||0)},0);
-      var maxTC=colSnap.reduce(function(m,d){return Math.max(m,d.tc||0)},0);
-      var colSorted=colSnap.slice().sort(function(a,b){return b.tc-a.tc});
-      var mpCol=buildCOL(colMet,cVis);
-      var metL2={tc:'Deudores TC',con:'Consumo Total',com:'Comercial',viv:'Vivienda',tot:'Total Colocac.'};
-      return ce('div',null,
-        ce('div',{style:{display:'flex',gap:6,marginTop:16,flexWrap:'wrap',alignItems:'center'}},
-          ce('span',{style:{fontSize:10,color:P.t2}},'Fuente: API CMF · Balances mensuales 2022–feb 2026')),
-        ce(Sec,{title:'Cartera de Crédito — dic 2025',sub:'Saldo MM$ · Deudores TC = cartera revolving tarjetas de crédito'},
-          ce('div',{style:{background:P.card,border:'1px solid '+P.border,borderRadius:10,overflowX:'auto'}},
-            ce('table',{style:{width:'100%',borderCollapse:'collapse',minWidth:700}},
-              ce('thead',null,ce('tr',null,
-                ce('th',{style:Object.assign({},thS,{textAlign:'left',width:80})},'Banco'),
-                ['Deudores TC','TC/Consumo','TC/Total','Provisiones/Total','Consumo Total','Comercial','Vivienda'].map(function(h,i){return ce('th',{key:i,style:thS},h)}))),
-              ce('tbody',null,colSorted.map(function(d){
-                var b=d.b;if(BN.indexOf(b)<0)return null;
-                var isHL=b==='Banco de Chile';
-                var tcCon=d.tc&&d.con?(d.tc/d.con*100):null;
-                var tcTot=d.tc&&d.tot?(d.tc/d.tot*100):null;
-                var provTot=d.prov&&d.tot?(Math.abs(d.prov)/d.tot*100):null;
-                return ce('tr',{key:b},
-                  ce('td',{style:Object.assign({},tdS,{textAlign:'left',fontFamily:"'DM Sans'",fontWeight:isHL?800:500,color:isHL?HL:P.t2})},SHORT[b]),
-                  ce('td',{style:Object.assign({},tdS,{color:isHL?P.t1:P.t2,fontWeight:isHL?700:400})},d.tc?'$'+Math.round(d.tc/1e3).toLocaleString('es-CL')+'K':'-'),
-                  ce('td',{style:Object.assign({},tdS,{color:tcCon&&tcCon>55?P.amber:P.t2,fontWeight:tcCon&&tcCon>55?700:400})},tcCon?tcCon.toFixed(1)+'%':'-'),
-                  ce('td',{style:Object.assign({},tdS,{color:P.t2})},tcTot?tcTot.toFixed(1)+'%':'-'),
-                  ce('td',{style:Object.assign({},tdS,{color:provTot&&provTot>2.8?P.amber:P.t2})},provTot?provTot.toFixed(2)+'%':'-'),
-                  ce('td',{style:Object.assign({},tdS,{color:P.t2})},d.con?'$'+Math.round(d.con/1e3).toLocaleString('es-CL')+'K':'-'),
-                  ce('td',{style:Object.assign({},tdS,{color:P.t2})},d.com?'$'+Math.round(d.com/1e3).toLocaleString('es-CL')+'K':'-'),
-                  ce('td',{style:Object.assign({},tdS,{color:P.t2})},d.viv?'$'+Math.round(d.viv/1e3).toLocaleString('es-CL')+'K':'-'))
-              }))
-            ))
-          ),
-        ce(Sec,{title:'Market Share — Cartera TC',sub:'% saldo deudores TC sobre sistema · dic 2025'},
-          ce('div',{style:{background:P.card,border:'1px solid '+P.border,borderRadius:10,padding:'16px 18px'}},
-            ce('div',{style:{display:'flex',flexDirection:'column',gap:5}},
-              colSorted.filter(function(d){return BN.indexOf(d.b)>=0&&d.tc}).map(function(d){
-                var isHL=d.b==='Banco de Chile';
-                var share=tcTotal>0?(d.tc/tcTotal*100):0;
-                var barPct=maxTC>0?(d.tc/maxTC*100):0;
-                return ce('div',{key:d.b,style:{display:'flex',alignItems:'center',gap:6}},
-                  ce('div',{style:{width:52,fontSize:10,color:isHL?HL:P.t2,fontWeight:isHL?800:500,textAlign:'right',flexShrink:0}},SHORT[d.b]),
-                  ce('div',{style:{flex:1,height:26,background:'rgba(255,255,255,0.03)',borderRadius:4,overflow:'hidden',position:'relative'}},
-                    ce('div',{style:{width:barPct+'%',height:'100%',background:isHL?'linear-gradient(90deg,'+P.bchi+','+P.bchiL+')':BC[d.b]+'44',borderRadius:4,minWidth:2}}),
-                    ce('div',{style:{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:'rgba(255,255,255,0.7)',fontFamily:"'JetBrains Mono',monospace"}},share.toFixed(1)+'%')),
-                  ce('div',{style:{width:110,fontSize:11,fontWeight:isHL?800:500,color:isHL?P.t1:P.t2,textAlign:'right',fontFamily:"'JetBrains Mono',monospace",flexShrink:0}},'$'+Math.round(d.tc/1e3).toLocaleString('es-CL')+'K MM'))
-              })))),
-        ce(Sec,{title:'Evolución Colocaciones',sub:'Serie mensual 2022–2026 · MM$'},
-          ce('div',{style:{display:'flex',gap:6,marginBottom:12,flexWrap:'wrap'}},
-            Object.keys(metL2).map(function(k){return ce(Pill,{key:k,active:colMet===k,onClick:function(){setColMet(k)}},metL2[k])})),
-          ce('div',{style:{background:P.card,border:'1px solid '+P.border,borderRadius:10,padding:'16px 12px'}},
-            ce('div',{style:{height:300}},ce(CJLineEx,{dates:mpCol.dates,lines:mpCol.lines,suffix:'$'}))),
-          ce(LegendEx,{lines:mpCol.lines,visible:cVis,onToggle:toggleCV})),
-        ce(Sec,{title:'Diagnóstico'},
-          ce('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}},
-            ce('div',{style:{background:P.card2,border:'1px solid '+P.border,borderRadius:10,padding:'14px 16px',borderLeft:'3px solid '+HL}},
-              ce('div',{style:{fontSize:12,fontWeight:700,color:P.t1,marginBottom:4}},'BdCh: 2\u00B0 mayor cartera TC del sistema'),
-              ce('div',{style:{fontSize:11,color:P.t2,lineHeight:1.5}},'$2.1B deudores TC (21.2% share). Scotia lidera $2.85B con 60% TC/consumo (alta concentraci\u00F3n revolving). BdCh 36% es balance saludable.')),
-            ce('div',{style:{background:P.card2,border:'1px solid '+P.border,borderRadius:10,padding:'14px 16px',borderLeft:'3px solid '+P.amber}},
-              ce('div',{style:{fontSize:12,fontWeight:700,color:P.t1,marginBottom:4}},'BCI: m\u00EDnima exposici\u00F3n TC (41%)'),
-              ce('div',{style:{fontSize:11,color:P.t2,lineHeight:1.5}},'Modelo orientado a banca comercial ($36.6B). Menor riesgo consumo. Sant. 34% y BdCh 36% son benchmarks de equilibrio.'))))
-      )
-    })(),
+    tab==='cartera'&&ce(TabCartera,{colMet:colMet,setColMet:setColMet,cVis:cVis,setCVis:setCVis}),
 
 /* FOOTER */
     ce('div',{style:{marginTop:44,paddingTop:14,borderTop:"1px solid "+P.border,display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}},
