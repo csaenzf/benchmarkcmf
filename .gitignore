@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+
+# Data pesada (no versionar — se regenera desde CMF)
+data/raw/*
+data/processed/*
+data/mora/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/mora/.gitkeep
+
+# Mantener inputs manuales y contexto (son referencias estables)
+# data/manual/ y data/context/ SÍ se versionan
+
+# Logs y debug
+*.log
+debug*.html
+debug*.txt
+
+# Outputs intermedios
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db
+
+# Playwright
+.playwright/
+
+# Dashboard generado (se regenera desde scripts)
+# Descomentar si NO quieres versionar el HTML:
+# dashboard/index.html
+
+# Credenciales
+*.key
+secrets.json

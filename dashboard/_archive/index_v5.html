@@ -425,11 +425,11 @@ function Dashboard(){
         ce(Sec,{title:ovKPI+" \u2014 Serie Histórica",sub:prodLabel[prod]+" ("+taLabel[ta]+") \u00B7 últimos 24 meses"},
           ce('div',{style:{background:P.card,border:"1px solid "+P.border,borderRadius:10,padding:"16px 12px"}},
             ce('div',{style:{height:340}},ce(TimeSeriesChart,{kpi:ovKPI,prod:prod,ta:ta,active:activeBanks}))),
-          ce(Legend,{banks:activeBanks})),
+          ce(Legend,null)),
         ce(Sec,{title:"YoY \u2014 "+ovKPI,sub:prodLabel[prod]+" ("+taLabel[ta]+") \u00B7 variación interanual"},
           ce('div',{style:{background:P.card,border:"1px solid "+P.border,borderRadius:10,padding:"16px 12px"}},
             ce('div',{style:{height:280}},ce(YoYSeriesChart,{kpi:ovKPI,prod:prod,ta:ta,active:activeBanks}))),
-          ce(Legend,{banks:activeBanks})))),
+          ce(Legend,null)))),
 
     /* ═════════════════ MARKET SHARE ═════════════════ */
     tab==="market"&&ce('div',null,

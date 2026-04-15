@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BenchmarkCMF — Inteligencia Competitiva de Tarjetas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy: #080F1E;
+    --blue-accent: #1A6FD4;
+    --blue-bright: #2F88FF;
+    --gold: #C4922A;
+    --gold-light: #E8B84B;
+    --white: #F7F8FA;
+    --white-dim: rgba(247,248,250,0.70);
+    --white-faint: rgba(247,248,250,0.12);
+    --white-ultra: rgba(247,248,250,0.06);
+    --border: rgba(247,248,250,0.10);
+    --border-strong: rgba(247,248,250,0.18);
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--navy);
+    color: var(--white);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    overflow: hidden;
+  }
+
+  /* ─── Video background ─── */
+  .video-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+  }
+
+  .video-bg video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    opacity: 0;
+    transition: opacity 1.2s ease;
+  }
+
+  .video-bg video.loaded {
+    opacity: 1;
+  }
+
+  /* Layered overlays for legibility */
+  .video-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(to bottom,
+        rgba(8,15,30,0.72) 0%,
+        rgba(8,15,30,0.55) 40%,
+        rgba(8,15,30,0.68) 70%,
+        rgba(8,15,30,0.88) 100%
+      ),
+      linear-gradient(to right,
+        rgba(8,15,30,0.30) 0%,
+        transparent 60%
+      );
+  }
+
+  /* Subtle noise grain */
+  .grain {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.028;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    background-size: 160px 160px;
+  }
+
+  /* ─── Layout ─── */
+  .page {
+    position: relative;
+    z-index: 2;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ─── Header ─── */
+  header {
+    padding: 28px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(2px);
+  }
+
+  .logo-wrap {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-mark {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+  }
+
+  .logo-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .logo-name {
+    font-family: 'DM Mono', monospace;
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--white);
+  }
+
+  .logo-sub {
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold-light);
+  }
+
+  .header-badge {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(247,248,250,0.40);
+    border: 1px solid var(--border);
+    padding: 5px 12px;
+    border-radius: 20px;
+    backdrop-filter: blur(4px);
+  }
+
+  /* ─── Hero ─── */
+  .hero {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 48px 40px;
+    text-align: center;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gold-light);
+    margin-bottom: 28px;
+  }
+
+  .eyebrow-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--gold-light);
+    border-radius: 50%;
+    animation: pulse 2.8s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(40px, 5.5vw, 66px);
+    font-weight: 400;
+    line-height: 1.13;
+    letter-spacing: -0.01em;
+    color: var(--white);
+    margin-bottom: 22px;
+    text-shadow: 0 2px 40px rgba(8,15,30,0.6);
+  }
+
+  h1 em {
+    font-style: italic;
+    color: var(--gold-light);
+  }
+
+  .subtitle {
+    font-size: clamp(14px, 1.8vw, 17px);
+    font-weight: 300;
+    line-height: 1.75;
+    color: var(--white-dim);
+    max-width: 580px;
+    margin: 0 auto 44px;
+    text-shadow: 0 1px 20px rgba(8,15,30,0.5);
+  }
+
+  /* ─── Feature pills ─── */
+  .features {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 48px;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 13px;
+    background: rgba(8,15,30,0.45);
+    border: 1px solid var(--border-strong);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--white-dim);
+    letter-spacing: 0.02em;
+    backdrop-filter: blur(8px);
+  }
+
+  .pill-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--blue-bright);
+    flex-shrink: 0;
+  }
+  .pill-dot.gold  { background: var(--gold-light); }
+  .pill-dot.green { background: #4ADE80; }
+
+  /* ─── CTA ─── */
+  .cta-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .btn-login {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 44px;
+    background: var(--blue-accent);
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    border-radius: 6px;
+    border: 1px solid rgba(47,136,255,0.35);
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(4px);
+  }
+
+  .btn-login::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 55%);
+    pointer-events: none;
+  }
+
+  .btn-login:hover {
+    background: var(--blue-bright);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 40px rgba(26,111,212,0.40);
+  }
+
+  .btn-login:active {
+    transform: translateY(0);
+    box-shadow: none;
+  }
+
+  .access-note {
+    font-size: 11.5px;
+    color: rgba(247,248,250,0.32);
+    letter-spacing: 0.02em;
+  }
+
+  /* ─── Stats bar ─── */
+  .stats-bar {
+    border-top: 1px solid var(--border);
+    padding: 20px 48px;
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    backdrop-filter: blur(4px);
+    background: rgba(8,15,30,0.30);
+  }
+
+  .stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 0 36px;
+    border-right: 1px solid var(--border);
+  }
+
+  .stat-item:last-child { border-right: none; }
+
+  .stat-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--white);
+    letter-spacing: -0.02em;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: rgba(247,248,250,0.32);
+  }
+
+  /* ─── Footer ─── */
+  footer {
+    padding: 14px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid var(--border);
+    backdrop-filter: blur(4px);
+    background: rgba(8,15,30,0.35);
+  }
+
+  .confidential-notice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10.5px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: rgba(247,248,250,0.30);
+  }
+
+  .confidential-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    opacity: 0.45;
+  }
+
+  .footer-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: rgba(247,248,250,0.28);
+  }
+
+  .cf-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    color: rgba(247,248,250,0.38);
+  }
+
+  /* ─── Entry animations ─── */
+  .fade-up {
+    opacity: 0;
+    transform: translateY(14px);
+    animation: fadeUp 0.75s ease forwards;
+  }
+  .fade-up:nth-child(1) { animation-delay: 0.10s; }
+  .fade-up:nth-child(2) { animation-delay: 0.22s; }
+  .fade-up:nth-child(3) { animation-delay: 0.34s; }
+  .fade-up:nth-child(4) { animation-delay: 0.46s; }
+  .fade-up:nth-child(5) { animation-delay: 0.58s; }
+
+  @keyframes fadeUp {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 700px) {
+    html, body { overflow: auto; }
+    header { padding: 18px 24px; }
+    .hero { padding: 40px 24px 32px; }
+    .stats-bar { padding: 16px 24px; flex-wrap: wrap; gap: 12px 0; }
+    .stat-item { padding: 0 20px; }
+    footer { padding: 12px 24px; flex-direction: column; gap: 6px; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Video background -->
+<div class="video-bg">
+  <video id="bgVideo" autoplay muted loop playsinline preload="auto">
+    <source src="Video_Portada_01.mp4" type="video/mp4">
+  </video>
+</div>
+
+<!-- Grain overlay -->
+<div class="grain"></div>
+
+<div class="page">
+
+  <!-- Header -->
+  <header>
+    <div class="logo-wrap">
+      <svg class="logo-mark" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="40" height="40" rx="8" fill="rgba(8,15,30,0.70)"/>
+        <rect x="0.5" y="0.5" width="39" height="39" rx="7.5" stroke="rgba(196,146,42,0.45)" stroke-width="0.5"/>
+        <rect x="8"  y="24" width="5" height="9"  rx="1" fill="#1A6FD4" opacity="0.65"/>
+        <rect x="15" y="18" width="5" height="15" rx="1" fill="#1A6FD4" opacity="0.82"/>
+        <rect x="22" y="12" width="5" height="21" rx="1" fill="#2F88FF"/>
+        <rect x="29" y="20" width="5" height="13" rx="1" fill="#C4922A" opacity="0.88"/>
+        <line x1="6" y1="15" x2="36" y2="15" stroke="#E8B84B" stroke-width="1.2" stroke-dasharray="2 2" opacity="0.8"/>
+      </svg>
+      <div class="logo-text">
+        <span class="logo-name">BenchmarkCMF</span>
+        <span class="logo-sub">Dashboard Competitivo · Chile</span>
+      </div>
+    </div>
+    <span class="header-badge">Acceso Restringido</span>
+  </header>
+
+  <!-- Hero -->
+  <div class="hero">
+
+    <div class="eyebrow fade-up">
+      <span class="eyebrow-dot"></span>
+      Inteligencia Competitiva · Datos CMF Chile
+    </div>
+
+    <h1 class="fade-up">
+      El mercado de tarjetas,<br>
+      <em>en una sola vista</em>
+    </h1>
+
+    <p class="subtitle fade-up">
+      Dashboard de benchmarking para tarjetas de crédito y débito del sistema financiero chileno, construido sobre datos oficiales de la CMF. Market share, tendencias, KPIs estratégicos y comparativas de los principales emisores.
+    </p>
+
+    <div class="features fade-up">
+      <span class="pill"><span class="pill-dot"></span>Market Share histórico</span>
+      <span class="pill"><span class="pill-dot gold"></span>6 bancos · Dic 2025</span>
+      <span class="pill"><span class="pill-dot"></span>23 KPIs por emisor</span>
+      <span class="pill"><span class="pill-dot green"></span>Series desde 2020</span>
+      <span class="pill"><span class="pill-dot gold"></span>Mora · Activación · Ticket</span>
+    </div>
+
+    <div class="cta-group fade-up">
+        <a class="btn-login" href="https://benchmarkcmf.cl/dashboard/">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+          <rect x="2" y="6.5" width="8.5" height="7.5" rx="1.5" stroke="white" stroke-width="1.25"/>
+          <path d="M4.5 6.5V5A3 3 0 0110.5 5v1.5" stroke="white" stroke-width="1.25" stroke-linecap="round"/>
+        </svg>
+        Ingresar al Dashboard
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+          <path d="M2.5 6.5h8M8 3.5l3 3-3 3" stroke="white" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
+      <span class="access-note">Solo usuarios autorizados · Autenticación OTP por email</span>
+    </div>
+
+  </div>
+
+  <!-- Stats bar -->
+  <div class="stats-bar">
+    <div class="stat-item">
+      <span class="stat-value">6</span>
+      <span class="stat-label">Bancos</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-value">23</span>
+      <span class="stat-label">KPIs</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-value">Dic '25</span>
+      <span class="stat-label">Última actualización</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-value">2020–</span>
+      <span class="stat-label">Serie histórica</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-value">CMF</span>
+      <span class="stat-label">Fuente oficial</span>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <div class="confidential-notice">
+      <svg class="confidential-icon" viewBox="0 0 14 14" fill="none">
+        <path d="M7 1L1.5 4v3c0 3.18 2.34 6.16 5.5 6.87C10.16 13.16 12.5 10.18 12.5 7V4L7 1z" stroke="currentColor" stroke-width="1.1"/>
+        <path d="M5 7l1.5 1.5L9.5 5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Información confidencial · No autorizada para su distribución o reproducción
+    </div>
+    <div class="footer-right">
+      Protegido por
+      <span class="cf-badge">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+          <circle cx="5" cy="5" r="4" stroke="#F6821F" stroke-width="1"/>
+          <path d="M3 5.5c0-.5.3-1 .8-1.2L5 4l1.2.3c.5.2.8.7.8 1.2v.5H3v-.5z" fill="#F6821F"/>
+        </svg>
+        Cloudflare Access
+      </span>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  var vid = document.getElementById('bgVideo');
+  vid.addEventListener('canplay', function() {
+    vid.classList.add('loaded');
+  });
+  // Fallback si ya estaba listo
+  if (vid.readyState >= 3) vid.classList.add('loaded');
+</script>
+
+</body>
+</html>
